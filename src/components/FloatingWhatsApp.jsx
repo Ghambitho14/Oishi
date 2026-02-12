@@ -1,34 +1,27 @@
 import React from 'react';
-import { MessageCircle, ShoppingBag } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react'; // Quitamos MessageCircle
 import { useCart } from '../context/CartContext';
 
-const FloatingWhatsApp = ({ phoneNumber = '56976645547' }) => {
-  const { total, totalItems, generateWhatsAppMessage } = useCart();
-
-  const handleClick = () => {
-    const message = generateWhatsAppMessage();
-    const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
-  };
+const FloatingWhatsApp = () => {
+  const { totalItems, cartTotal, toggleCart } = useCart();
+  const hasItems = totalItems > 0;
 
   return (
     <button 
-      onClick={handleClick} 
-      className={`whatsapp-float glass ${totalItems > 0 ? 'has-items' : ''}`}
-      aria-label="Hacer pedido por WhatsApp"
+      onClick={toggleCart} 
+      // Si tiene items, agregamos clase para efecto visual
+      className={`whatsapp-float glass ${hasItems ? 'has-items' : ''}`}
     >
-      {totalItems > 0 ? (
-        <ShoppingBag size={24} color="white" />
-      ) : (
-        <MessageCircle size={28} color="white" fill="white" />
-      )}
+      {/* SIEMPRE es una bolsa de compras */}
+      <ShoppingBag size={24} color="white" />
       
-      {totalItems > 0 && (
+      {/* El contador SOLO sale si hay items */}
+      {hasItems && (
         <span className="badge-count animate-bounce">{totalItems}</span>
       )}
 
       <span className="tooltip">
-        {totalItems > 0 ? `Pedir: $${total.toLocaleString('es-CL')}` : 'Hacer Pedido'}
+        {hasItems ? `Ver Pedido ($${cartTotal.toLocaleString('es-CL')})` : 'Tu carrito está vacío'}
       </span>
     </button>
   );

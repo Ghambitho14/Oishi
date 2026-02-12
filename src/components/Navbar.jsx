@@ -4,7 +4,6 @@ const Navbar = ({ categories, activeCategory, onCategoryClick }) => {
   const scrollRef = useRef(null);
 
   useEffect(() => {
-    // Centrar la categoría activa automáticamente
     if (activeCategory && scrollRef.current) {
       const activeElement = scrollRef.current.querySelector(`.tab-item[data-id="${activeCategory}"]`);
       if (activeElement) {
@@ -14,19 +13,17 @@ const Navbar = ({ categories, activeCategory, onCategoryClick }) => {
   }, [activeCategory]);
 
   return (
-    <nav className="navbar-sticky glass">
-      <div className="navbar-container" ref={scrollRef}>
-        {categories.map((cat) => (
-          <button
-            key={cat.id}
-            data-id={cat.id}
-            onClick={() => onCategoryClick(cat.id)}
-            className={`tab-item ${activeCategory === cat.id ? 'active' : ''}`}
-          >
-            {cat.name}
-          </button>
-        ))}
-      </div>
+    <nav className="navbar-container" ref={scrollRef}>
+      {categories.map((cat) => (
+        <button
+          key={cat.id}
+          data-id={cat.id}
+          onClick={() => onCategoryClick(cat.id)}
+          className={`tab-item ${activeCategory === cat.id ? 'active' : ''}`}
+        >
+          {cat.name}
+        </button>
+      ))}
     </nav>
   );
 };

@@ -1,291 +1,181 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import ProductCard from '../components/ProductCard';
+import FloatingWhatsApp from '../components/FloatingWhatsApp';
+import CartModal from '../components/CartModal';
 import { Search, ChevronLeft, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import logo from '../assets/logo.png'; 
 
 const Menu = () => {
-	const navigate = useNavigate();
-	const [categories, setCategories] = useState([]);
-	const [products, setProducts] = useState([]);
-	const [loading, setLoading] = useState(true);
-	const [activeCategory, setActiveCategory] = useState(null);
-	const sectionRefs = useRef({});
+  const navigate = useNavigate();
+  const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState(null);
 
-	// Cargar datos desde Supabase
-	useEffect(() => {
-		const loadData = async () => {
-			try {
-				// Cargar categorías ordenadas
-				const { data: categoriesData, error: categoriesError } = await supabase
-					.from('categories')
-					.select('*')
-					.eq('is_active', true)
-					.order('order', { ascending: true });
+  // Carga de datos
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const { data: categoriesData } = await supabase
+          .from('categories')
+          .select('*')
+          .eq('is_active', true)
+          .order('order', { ascending: true });
 
-				if (categoriesError) throw categoriesError;
+        const { data: productsData } = await supabase
+          .from('products')
+          .select('*')
+          .eq('is_active', true)
+          .order('name', { ascending: true });
 
-				// Cargar productos
-				const { data: productsData, error: productsError } = await supabase
-					.from('products')
-					.select('*')
-					.eq('is_active', true) // Solo productos activos
-					.order('name', { ascending: true });
+        setCategories(categoriesData || []);
+        setProducts(productsData || []);
 
-				if (productsError) throw productsError;
+        // Establecer categoría inicial
+        const hasSpecial = (productsData || []).some(p => p.is_special);
+        if (hasSpecial) setActiveCategory('special');
+        else if (categoriesData?.length > 0) setActiveCategory(categoriesData[0].id);
+        
+      } catch (error) {
+        console.error('Error cargando datos:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
-				setCategories(categoriesData || []);
-				setProducts(productsData || []);
+  // Función para scroll manual (Click en Navbar)
+  const scrollToCategory = (id) => {
+    setActiveCategory(id);
+    const element = document.getElementById(`section-${id}`);
+    if (element) {
+      // Offset de 160px para compensar el header sticky
+      const headerOffset = 160; 
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+    }
+  };
 
-				// Establecer primera categoría como activa (o especial si hay productos especiales)
-				const hasSpecial = (productsData || []).some(p => p.is_special);
-				if (hasSpecial) {
-					setActiveCategory('special');
-				} else if (categoriesData && categoriesData.length > 0) {
-					setActiveCategory(categoriesData[0].id);
-				}
-			} catch (error) {
-				console.error('Error cargando datos:', error);
-			} finally {
-				setLoading(false);
-			}
-		};
+  // Lógica de "Scroll Spy" (Detectar sección al bajar)
+  useEffect(() => {
+    if (loading) return;
 
-		loadData();
-	}, []);
+    const handleScroll = () => {
+      // AQUÍ ESTÁ EL ARREGLO: Aumenté el offset a 220px
+      // Esto compensa la altura del nuevo header + un margen para que cambie antes
+      const scrollPosition = window.scrollY + 220;
+      
+      const specialSection = document.getElementById('section-special');
+      
+      // 1. Verificar Sección Especial
+      if (specialSection) {
+        const top = specialSection.offsetTop;
+        const height = specialSection.offsetHeight;
+        if (scrollPosition >= top && scrollPosition < top + height) {
+          setActiveCategory('special');
+          return; 
+        }
+      }
 
-	const scrollToCategory = (id) => {
-		setActiveCategory(id);
-		const element = document.getElementById(`section-${id}`);
-		if (element) {
-			const offset = 80;
-			const bodyRect = document.body.getBoundingClientRect().top;
-			const elementRect = element.getBoundingClientRect().top;
-			const elementPosition = elementRect - bodyRect;
-			const offsetPosition = elementPosition - offset;
+      // 2. Verificar Categorías Normales
+      for (const cat of categories) {
+        const element = document.getElementById(`section-${cat.id}`);
+        if (element) {
+          const top = element.offsetTop;
+          const height = element.offsetHeight;
+          
+          if (scrollPosition >= top && scrollPosition < top + height) {
+            setActiveCategory(cat.id);
+            break; // Rompemos el ciclo apenas encontramos la activa
+          }
+        }
+      }
+    };
 
-			window.scrollTo({
-				top: offsetPosition,
-				behavior: 'smooth'
-			});
-		}
-	};
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [categories, products, loading]);
 
-	// Separar productos especiales
-	const specialProducts = products.filter(p => p.is_special);
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'var(--bg-primary)' }}>
+        <Loader2 size={40} className="animate-spin" color="var(--accent-primary)" />
+      </div>
+    );
+  }
 
-	useEffect(() => {
-		if (categories.length === 0) return;
+  const specialProducts = products.filter(p => p.is_special);
 
-		const handleScroll = () => {
-			const scrollPosition = window.scrollY + 100;
+  return (
+    <div className="page-wrapper">
+      {/* Header Sticky */}
+      <header className="navbar-sticky">
+        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '10px' }}>
+          <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: 0 }}>
+            <ChevronLeft size={28} />
+          </button>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <img src={logo} alt="Oishi Logo" style={{ height: '38px', width: 'auto', borderRadius: '6px' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1 }}>
+              <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700, color: 'white' }}>Oishi Sushi</h2>
+              <span style={{ fontSize: '0.7rem', color: 'var(--accent-primary)', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 600 }}>Carta Digital</span>
+            </div>
+          </div>
+          
+          <div style={{ color: 'var(--text-secondary)' }}><Search size={24} /></div>
+        </div>
 
-			// Verificar sección especial primero
-			if (specialProducts.length > 0) {
-				const specialElement = document.getElementById('section-special');
-				if (specialElement) {
-					const top = specialElement.offsetTop;
-					const height = specialElement.offsetHeight;
-					if (scrollPosition >= top && scrollPosition < top + height) {
-						setActiveCategory('special');
-						return;
-					}
-				}
-			}
+        <Navbar 
+          categories={[
+            ...(specialProducts.length > 0 ? [{ id: 'special', name: '🔥 Solo por hoy' }] : []),
+            ...categories
+          ]} 
+          activeCategory={activeCategory} 
+          onCategoryClick={scrollToCategory} 
+        />
+      </header>
 
-			// Verificar categorías normales
-			for (const cat of categories) {
-				const element = document.getElementById(`section-${cat.id}`);
-				if (element) {
-					const top = element.offsetTop;
-					const height = element.offsetHeight;
+      <main className="container">
+        {/* Sección Especial */}
+        {specialProducts.length > 0 && (
+          <section id="section-special" style={{ marginBottom: '40px', scrollMarginTop: '160px' }}>
+            <h2 className="section-title text-gradient">🔥 Solo por hoy</h2>
+            <div className="product-grid">
+              {specialProducts.map(product => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          </section>
+        )}
 
-					if (scrollPosition >= top && scrollPosition < top + height) {
-						setActiveCategory(cat.id);
-						break;
-					}
-				}
-			}
-		};
+        {/* Categorías Dinámicas */}
+        {categories.map((cat) => {
+          const catProducts = products.filter(p => p.category_id === cat.id);
+          if (catProducts.length === 0) return null;
 
-		window.addEventListener('scroll', handleScroll);
-		return () => window.removeEventListener('scroll', handleScroll);
-	}, [categories, specialProducts]);
+          return (
+            <section key={cat.id} id={`section-${cat.id}`} style={{ marginBottom: '40px', scrollMarginTop: '160px' }}>
+              <h2 className="section-title">{cat.name}</h2>
+              <div className="product-grid">
+                {catProducts.map(product => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </main>
 
-
-	if (loading) {
-		return (
-			<div className="menu-page" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-				<Loader2 size={40} className="animate-spin" style={{ color: 'var(--accent-primary)' }} />
-			</div>
-		);
-	}
-
-	return (
-		<div className="menu-page">
-			<header className="menu-header glass">
-				<div className="container header-flex">
-					<button onClick={() => navigate('/')} className="btn-back">
-						<ChevronLeft size={24} />
-					</button>
-					<div className="header-title">
-						<h2>Oishi Sushi</h2>
-						<span>Carta Digital</span>
-					</div>
-					<div className="header-search">
-						<Search size={20} />
-					</div>
-				</div>
-			</header>
-
-			<Navbar 
-				categories={[
-					...(specialProducts.length > 0 ? [{ id: 'special', name: '⭐ Solo por hoy' }] : []),
-					...categories
-				]} 
-				activeCategory={activeCategory} 
-				onCategoryClick={scrollToCategory} 
-			/>
-
-			<main className="container menu-content">
-				{/* Sección de productos especiales */}
-				{specialProducts.length > 0 && (
-					<section 
-						id="section-special" 
-						className="category-section"
-					>
-						<h2 className="section-title">⭐ Solo por hoy</h2>
-						<div className="products-grid">
-							{specialProducts.map(product => (
-								<ProductCard 
-									key={product.id} 
-									product={product} 
-									onAdd={(p) => console.log('Añadido:', p.name)} 
-								/>
-							))}
-						</div>
-					</section>
-				)}
-
-				{/* Categorías normales */}
-				{categories.map((cat) => {
-					const categoryProducts = products.filter(p => p.category_id === cat.id);
-					if (categoryProducts.length === 0) return null;
-
-					return (
-						<section 
-							key={cat.id} 
-							id={`section-${cat.id}`} 
-							className="category-section"
-						>
-							<h2 className="section-title">{cat.name}</h2>
-							<div className="products-grid">
-								{categoryProducts.map(product => (
-									<ProductCard 
-										key={product.id} 
-										product={product} 
-										onAdd={(p) => console.log('Añadido:', p.name)} 
-									/>
-								))}
-							</div>
-						</section>
-					);
-				})}
-			</main>
-
-			<style jsx>{`
-				.menu-page {
-					padding-bottom: 80px;
-				}
-
-				.menu-header {
-					padding: 15px 0;
-					position: sticky;
-					top: 0;
-					background: var(--bg-primary);
-					z-index: 110;
-					border-bottom: 1px solid rgba(255,255,255,0.05);
-				}
-
-				.header-flex {
-					display: flex;
-					align-items: center;
-					justify-content: space-between;
-				}
-
-				.btn-back {
-					background: none;
-					border: none;
-					color: white;
-					cursor: pointer;
-					padding: 5px;
-				}
-
-				.header-title {
-					text-align: center;
-				}
-
-				.header-title h2 {
-					font-size: 1.2rem;
-					margin: 0;
-				}
-
-				.header-title span {
-					font-size: 0.75rem;
-					color: var(--accent-primary);
-					text-transform: uppercase;
-					letter-spacing: 1px;
-				}
-
-				.header-search {
-					color: var(--text-secondary);
-				}
-
-				.menu-content {
-					margin-top: 10px;
-				}
-
-				.category-section {
-					scroll-margin-top: 150px;
-					margin-bottom: 40px;
-				}
-
-				.products-grid {
-					display: grid;
-					grid-template-columns: repeat(1, 1fr);
-					gap: 15px;
-				}
-
-				.no-products {
-					color: var(--text-muted);
-					font-style: italic;
-					font-size: 0.9rem;
-				}
-
-				@keyframes spin {
-					from { transform: rotate(0deg); }
-					to { transform: rotate(360deg); }
-				}
-
-				.animate-spin {
-					animation: spin 1s linear infinite;
-				}
-
-				@media (min-width: 600px) {
-					.products-grid {
-						grid-template-columns: repeat(2, 1fr);
-					}
-				}
-
-				@media (min-width: 1024px) {
-					.products-grid {
-						grid-template-columns: repeat(4, 1fr); /* 4 items por fila en tablets/desktop */
-					}
-				}
-			`}</style>
-		</div>
-	);
+      <CartModal />
+      <FloatingWhatsApp />
+    </div>
+  );
 };
 
 export default Menu;

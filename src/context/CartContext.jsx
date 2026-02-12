@@ -1,11 +1,8 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 
-// 1. Crear el contexto
 const CartContext = createContext();
 
-// 2. Crear el proveedor (la "nube" que envuelve la app)
 export const CartProvider = ({ children }) => {
-  // Intentamos leer del localStorage para no perder el pedido si recargan la página
   const [cart, setCart] = useState(() => {
     try {
       const savedCart = localStorage.getItem('sushi_cart');
@@ -15,63 +12,91 @@ export const CartProvider = ({ children }) => {
     }
   });
 
-  // Cada vez que el carrito cambie, lo guardamos en localStorage
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [orderNote, setOrderNote] = useState('');
+
   useEffect(() => {
     localStorage.setItem('sushi_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // Función para agregar producto
+  const getPrice = (product) => {
+    if (product.discount_price && product.discount_price > 0) {
+      return parseInt(product.discount_price);
+    }
+    return parseInt(product.price);
+  };
+
+  const toggleCart = () => setIsCartOpen(!isCartOpen);
+
   const addToCart = (product) => {
-    setCart(prevCart => {
-      // ¿Ya existe este producto en el carrito?
-      const existingItem = prevCart.find(item => item.id === product.id);
-
-      if (existingItem) {
-        // Si existe, sumamos 1 a la cantidad
-        return prevCart.map(item =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
+    setCart(prev => {
+      const existing = prev.find(item => item.id === product.id);
+      if (existing) {
+        return prev.map(item => 
+          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
-      } else {
-        // Si no existe, lo agregamos con cantidad 1
-        return [...prevCart, { ...product, quantity: 1 }];
       }
+      return [...prev, { ...product, quantity: 1 }];
     });
   };
 
-  // Función para quitar producto (o restar cantidad)
-  const removeFromCart = (productId) => {
-    setCart(prevCart => prevCart.filter(item => item.id !== productId));
+  const decreaseQuantity = (productId) => {
+    setCart(prev => prev.map(item => {
+      if (item.id === productId) {
+        return { ...item, quantity: Math.max(0, item.quantity - 1) };
+      }
+      return item;
+    }).filter(item => item.quantity > 0));
   };
-  
-  // Limpiar carrito
-  const clearCart = () => setCart([]);
 
-  // Calcular total (para mostrarlo en el botón de WhatsApp)
-  const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const removeFromCart = (id) => setCart(prev => prev.filter(item => item.id !== id));
   
-  // Generar mensaje para WhatsApp
+  const clearCart = () => {
+    setCart([]);
+    setOrderNote('');
+  };
+
+  const cartTotal = cart.reduce((acc, item) => acc + (getPrice(item) * item.quantity), 0);
+  const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
+
+  // --- GENERADOR DE MENSAJE TIPO TICKET ---
   const generateWhatsAppMessage = () => {
-    if (cart.length === 0) return "Hola! Me gustaría ver el menú.";
-    
-    let message = "Hola! Me gustaría pedir lo siguiente:%0A"; // %0A es salto de línea
+    if (cart.length === 0) return;
+
+    let message = `🍣 *NUEVO PEDIDO WEB OISHI* 🍣\n`;
+    message += `───────────────\n`; 
+
     cart.forEach(item => {
-      message += `- ${item.quantity}x ${item.name} ($${item.price * item.quantity})%0A`;
+      const price = getPrice(item);
+      const subtotal = price * item.quantity;
+      
+      message += `📦 *${item.quantity}x ${item.name}*\n`;
+      if (item.discount_price && item.discount_price < item.price) {
+         message += `   🏷️ _(Oferta: $${price.toLocaleString('es-CL')})_\n`;
+      }
+      message += `   💲 Subtotal: $${subtotal.toLocaleString('es-CL')}\n\n`;
     });
-    message += `%0A*Total: $${total.toLocaleString('es-CL')}*`;
-    message += "%0A%0A¿Cuánto demora el delivery?";
+
+    message += `───────────────\n`;
     
-    return message;
+    if (orderNote.trim()) {
+      message += `📝 *Nota:* ${orderNote}\n`;
+      message += `───────────────\n`;
+    }
+
+    message += `💰 *TOTAL: $${cartTotal.toLocaleString('es-CL')}*\n`;
+    message += `───────────────\n\n`;
+    message += `📍 *Mis datos de envío:*\n(Escribe aquí tu dirección)`;
+
+    return encodeURIComponent(message);
   };
 
   return (
     <CartContext.Provider value={{ 
-      cart, 
-      addToCart, 
-      removeFromCart, 
-      clearCart, 
-      total,
+      cart, isCartOpen, toggleCart, 
+      addToCart, decreaseQuantity, removeFromCart, clearCart,
+      cartTotal, totalItems, getPrice,
+      orderNote, setOrderNote,
       generateWhatsAppMessage 
     }}>
       {children}
@@ -79,5 +104,4 @@ export const CartProvider = ({ children }) => {
   );
 };
 
-// 3. Hook personalizado para usar el carrito fácil
 export const useCart = () => useContext(CartContext);
