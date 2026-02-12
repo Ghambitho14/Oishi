@@ -527,9 +527,31 @@ input:checked + .slider:before { transform: translateX(22px); }
 /* Pantalla de Éxito */
 .cart-success-view { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; }
 .success-icon-circle { width: 80px; height: 80px; border-radius: 50%; background: rgba(37, 211, 102, 0.1); color: #25d366; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; border: 2px solid #25d366; }
-.order-summary-card { background: var(--bg-tertiary); width: 100%; padding: 15px; border-radius: 12px; border: 1px solid var(--card-border); margin: 25px 0; }
-.summary-label { font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
-.summary-value { font-size: 1.1rem; font-weight: 700; color: white; }
+.order-summary-card {
+  background: var(--bg-tertiary);
+  width: 100%;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid var(--card-border);
+  margin: 10px 0 25px 0; /* Margen para separar del texto y los botones */
+  text-align: center;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.2);
+}
+
+.summary-label {
+  font-size: 0.75rem;
+  color: var(--accent-secondary); /* Color naranja para la etiqueta */
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.summary-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: white;
+}
 .success-actions { width: 100%; display: flex; flex-direction: column; gap: 12px; }
 
 /* =========================================
@@ -555,3 +577,40 @@ section { scroll-behavior: smooth; overflow-anchor: none; }
 body:has(.login-container) .cart-float, body:has(.login-page) .cart-float, body:has(.admin-layout) .cart-float, body:has(.admin-container) .cart-float { display: none !important; visibility: hidden !important; pointer-events: none !important; }
 body:has(.login-container) .cart-panel, body:has(.admin-layout) .cart-panel { display: none !important; }
 body:has(.login-container) [class*="cart"], body:has(.admin-layout) [class*="cart"] { display: none !important; }
+
+/* =========================================
+   16. ESTILOS UPLOAD COMPROBANTE
+   ========================================= */
+.upload-box {
+  border: 2px dashed var(--card-border);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.upload-box:hover {
+  border-color: var(--accent-primary);
+  background: rgba(230, 57, 70, 0.1);
+}
+
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.file-selected {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #25d366; /* Verde éxito */
+  font-weight: 700;
+  font-size: 0.9rem;
+}
