@@ -79,7 +79,7 @@ const ProductModal = React.memo(({ isOpen, onClose, onSave, product, categories,
     if (!formData.price || isNaN(formData.price) || formData.price <= 0) newErrors.price = 'Precio inválido';
     if (!formData.category_id) newErrors.category_id = 'Selecciona una categoría';
     if (!formData.description.trim()) newErrors.description = 'La descripción es obligatoria';
-    if (!formData.image_url && !localFile) newErrors.image_url = 'Agrega una imagen o URL';
+    // Imagen ya no es obligatoria
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
