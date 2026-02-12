@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
-const CategoryModal = ({ isOpen, onClose, onSave, category }) => {
+const CategoryModal = React.memo(({ isOpen, onClose, onSave, category, saving = false }) => {
   const [formData, setFormData] = useState({
     name: '',
     order: 0,
@@ -94,16 +95,17 @@ const CategoryModal = ({ isOpen, onClose, onSave, category }) => {
           </div>
 
           <footer className="modal-footer">
-            <button type="button" onClick={onClose} className="btn btn-secondary">Cancelar</button>
-            <button type="submit" className="btn btn-primary">
-              <Save size={18} />
-              <span>Guardar</span>
+            <button type="button" onClick={onClose} className="btn btn-secondary" disabled={saving}>Cancelar</button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+              <span>{saving ? 'Guardando...' : 'Guardar'}</span>
             </button>
           </footer>
         </form>
       </div>
     </div>
+
   );
-};
+});
 
 export default CategoryModal;

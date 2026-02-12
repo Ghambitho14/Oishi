@@ -2,7 +2,7 @@ import React from 'react';
 import { X, Trash2, Plus, Minus, MessageCircle, ShoppingBag } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
-const CartModal = () => {
+const CartModal = React.memo(() => {
   const { 
     cart, isCartOpen, toggleCart, 
     addToCart, decreaseQuantity, removeFromCart, 
@@ -125,7 +125,8 @@ const CartModal = () => {
         )}
       </div>
     </div>
+
   );
-};
+});
 
 export default CartModal;

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Check, ChevronDown, X } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
-const ProductCard = ({ product }) => {
+const ProductCard = React.memo(({ product }) => {
   const { addToCart } = useCart();
   const [isAdded, setIsAdded] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -80,13 +81,14 @@ const ProductCard = ({ product }) => {
             className={`btn-add ${isAdded ? 'added' : ''}`}
             disabled={isAdded}
           >
-            {isAdded ? <Check size={18} /> : <Plus size={18} />}
-            <span>{isAdded ? 'Listo' : 'Agregar'}</span>
+            {isAdded ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+            <span>{isAdded ? 'Agregado' : 'Agregar'}</span>
           </button>
         </div>
       </div>
     </div>
+
   );
-};
+});
 
 export default ProductCard;

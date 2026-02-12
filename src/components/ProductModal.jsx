@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, Upload, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
-const ProductModal = ({ isOpen, onClose, onSave, product, categories, saving = false }) => {
+const ProductModal = React.memo(({ isOpen, onClose, onSave, product, categories, saving = false }) => {
   const fileInputRef = useRef();
   const [formData, setFormData] = useState({
     name: '',
@@ -230,14 +231,15 @@ const ProductModal = ({ isOpen, onClose, onSave, product, categories, saving = f
           <footer className="modal-footer" style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:18}}>
             <button type="button" onClick={onClose} className="btn btn-secondary" disabled={saving}>Cancelar</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              <Save size={18} />
+              {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
               <span>{saving ? 'Guardando...' : 'Guardar'}</span>
             </button>
           </footer>
         </form>
       </div>
     </div>
+
   );
-};
+});
 
 export default ProductModal;
