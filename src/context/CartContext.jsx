@@ -1,43 +1,39 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext } from 'react';
 
 const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
-  const [cart, setCart] = useState(() => {
-    try {
-      const savedCart = localStorage.getItem('sushi_cart');
-      return savedCart ? JSON.parse(savedCart) : [];
-    } catch (error) {
-      return [];
-    }
-  });
-
+  // 1. ESTADO INICIAL VACÍO (Sin localStorage para que se reinicie al recargar)
+  const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [orderNote, setOrderNote] = useState('');
 
-  useEffect(() => {
-    localStorage.setItem('sushi_cart', JSON.stringify(cart));
-  }, [cart]);
-
+  // 2. LÓGICA DE PRECIOS
   const getPrice = (product) => {
-    if (product.discount_price && product.discount_price > 0) {
+    // Priorizamos el precio de descuento si existe y es mayor a 0
+    if (product.discount_price && parseInt(product.discount_price) > 0) {
       return parseInt(product.discount_price);
     }
     return parseInt(product.price);
   };
 
-  const toggleCart = () => setIsCartOpen(!isCartOpen);
+  // 3. ACCIONES DEL CARRITO
+  const toggleCart = () => setIsCartOpen(prev => !prev);
 
   const addToCart = (product) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
+        // Si ya existe, sumamos 1 a la cantidad
         return prev.map(item => 
           item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
+      // Si es nuevo, lo agregamos con cantidad 1
       return [...prev, { ...product, quantity: 1 }];
     });
+    // Opcional: Abrir carrito al agregar (descomentar si te gusta ese efecto)
+    // setIsCartOpen(true); 
   };
 
   const decreaseQuantity = (productId) => {
@@ -46,59 +42,63 @@ export const CartProvider = ({ children }) => {
         return { ...item, quantity: Math.max(0, item.quantity - 1) };
       }
       return item;
-    }).filter(item => item.quantity > 0));
+    }).filter(item => item.quantity > 0)); // Eliminamos si llega a 0
   };
 
-  const removeFromCart = (id) => setCart(prev => prev.filter(item => item.id !== id));
+  const removeFromCart = (id) => {
+    setCart(prev => prev.filter(item => item.id !== id));
+  };
   
   const clearCart = () => {
     setCart([]);
     setOrderNote('');
   };
 
+  // 4. CALCULOS DERIVADOS (Se actualizan solos)
   const cartTotal = cart.reduce((acc, item) => acc + (getPrice(item) * item.quantity), 0);
   const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
-  // --- GENERADOR DE MENSAJE TIPO TICKET ---
+  // 5. GENERADOR DE MENSAJE (Utilidad)
   const generateWhatsAppMessage = () => {
-    if (cart.length === 0) return;
+    if (cart.length === 0) return '';
 
-    // Usa emojis directamente en el string para máxima compatibilidad
     let message = '';
     message += '==============================\n';
-    message += '   NUEVO PEDIDO WEB OISHI\n';
+    message += '   PEDIDO WEB - OISHI\n';
     message += '==============================\n\n';
 
     cart.forEach(item => {
       const price = getPrice(item);
       const subtotal = price * item.quantity;
       message += `• ${item.quantity} x ${item.name}\n`;
-      if (item.discount_price && item.discount_price < item.price) {
-        message += `    Oferta: $${price.toLocaleString('es-CL')}\n`;
-      }
-      message += `    Subtotal: $${subtotal.toLocaleString('es-CL')}\n\n`;
+      message += `    Subtotal: $${subtotal.toLocaleString('es-CL')}\n`;
     });
 
-    message += '------------------------------\n';
-    message += `TOTAL A PAGAR: $${cartTotal.toLocaleString('es-CL')}\n`;
+    message += '\n------------------------------\n';
+    message += `TOTAL: $${cartTotal.toLocaleString('es-CL')}\n`;
     message += '------------------------------\n';
 
     if (orderNote.trim()) {
-      message += `Nota para el pedido: ${orderNote}\n`;
-      message += '------------------------------\n';
+      message += `Nota: ${orderNote}\n`;
     }
-
-    message += '\nPor favor, completa tus datos de envío:\n(Nombre, dirección, referencia, etc.)';
 
     return encodeURIComponent(message);
   };
 
   return (
     <CartContext.Provider value={{ 
-      cart, isCartOpen, toggleCart, 
-      addToCart, decreaseQuantity, removeFromCart, clearCart,
-      cartTotal, totalItems, getPrice,
-      orderNote, setOrderNote,
+      cart, 
+      isCartOpen, 
+      toggleCart, 
+      addToCart, 
+      decreaseQuantity, 
+      removeFromCart, 
+      clearCart,
+      cartTotal, 
+      totalItems, 
+      getPrice,
+      orderNote, 
+      setOrderNote,
       generateWhatsAppMessage 
     }}>
       {children}

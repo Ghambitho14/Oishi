@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Navbar from '../components/Navbar';
 import ProductCard from '../components/ProductCard';
-import FloatingWhatsApp from '../components/FloatingWhatsApp';
+import FloatingWhatsApp from '../components/CartFloat';
 import CartModal from '../components/CartModal';
 import { Search, ChevronLeft, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';

@@ -3,29 +3,32 @@ import {
   ShoppingBag, List, Settings, Plus, Edit, Trash, LogOut, 
   ExternalLink, LayoutDashboard, Loader2, Search, Filter,
   CheckCircle2, AlertCircle, Image as ImageIcon, Upload,
-  Eye, EyeOff, BarChart3, TrendingUp, Package, DollarSign
+  Eye, EyeOff, BarChart3, TrendingUp, Package, DollarSign,
+  ChefHat, Clock, CheckSquare, XCircle, Phone, FileText,
+  UserCheck, BellRing // Iconos nuevos para el flujo de retiro
 } from 'lucide-react';
-import { Bar } from 'react-chartjs-2';
-import 'chart.js/auto';
 import { useNavigate } from 'react-router-dom';
 import ProductModal from '../components/ProductModal';
 import CategoryModal from '../components/CategoryModal';
 import { supabase } from '../lib/supabase';
-import logo from '../assets/logo.png'; // Integración de tu logo real
+import logo from '../assets/logo.png'; 
 
 const Admin = () => {
   const navigate = useNavigate();
   
   // --- ESTADOS DE DATOS ---
-  const [activeTab, setActiveTab] = useState('products');
+  const [activeTab, setActiveTab] = useState('orders'); 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [orders, setOrders] = useState([]); 
   
-  // --- FILTROS Y BÚSQUEDA ---
+  // Estados de Filtros
+  const [orderStatusFilter, setOrderStatusFilter] = useState('pending'); // pending, active, completed, picked_up, canceled
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   // --- CONTROL DE MODALES ---
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,7 +36,6 @@ const Admin = () => {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
 
-  // --- SISTEMA DE NOTIFICACIONES ---
   const [notification, setNotification] = useState(null);
 
   const showNotify = (msg, type = 'success') => {
@@ -45,13 +47,13 @@ const Admin = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const { data: cats, error: errCats } = await supabase.from('categories').select('*').order('order');
-      const { data: prods, error: errProds } = await supabase.from('products').select('*').order('name');
-      
-      if (errCats || errProds) throw new Error("Fallo en la sincronización con la base de datos");
+      const { data: cats } = await supabase.from('categories').select('*').order('order');
+      const { data: prods } = await supabase.from('products').select('*').order('name');
+      const { data: ords } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
 
       setCategories(cats || []);
       setProducts(prods || []);
+      setOrders(ords || []);
     } catch (error) {
       showNotify(error.message, 'error');
     } finally {
@@ -61,17 +63,32 @@ const Admin = () => {
 
   useEffect(() => { loadData(); }, []);
 
-  // --- GESTIÓN DE PRODUCTOS (CRUD ROBUSTO) ---
-  // Cambiar estado de visibilidad del producto
+  // --- GESTIÓN DE PEDIDOS ---
+  const updateOrderStatus = async (orderId, newStatus) => {
+    try {
+      const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId);
+      if (error) throw error;
+
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+      
+      const labels = { 
+        active: 'En Cocina', 
+        completed: 'Listo para Retiro', 
+        picked_up: 'Entregado al Cliente', // Nuevo Label
+        canceled: 'Cancelado' 
+      };
+      showNotify(`Pedido: ${labels[newStatus] || newStatus}`);
+    } catch (error) {
+      showNotify("Error al actualizar pedido", "error");
+    }
+  };
+
+  // --- GESTIÓN DE PRODUCTOS ---
   const toggleProductActive = async (product) => {
     const newActive = !product.is_active;
     try {
       const { data, error } = await supabase
-        .from('products')
-        .update({ is_active: newActive })
-        .eq('id', product.id)
-        .select()
-        .single();
+        .from('products').update({ is_active: newActive }).eq('id', product.id).select().single();
       if (error) throw error;
       setProducts(prev => prev.map(p => p.id === product.id ? data : p));
       showNotify(newActive ? 'Producto visible' : 'Producto pausado');
@@ -80,70 +97,33 @@ const Admin = () => {
     }
   };
 
-  // --- GESTIÓN DE CATEGORÍAS (CRUD) ---
-  const handleSaveCategory = async (formData) => {
-    setSaving(true);
-    try {
-      let payload = {
-        name: formData.name,
-        order: parseInt(formData.order),
-        is_active: formData.is_active
-      };
-      let data, error;
-      if (editingCategory) {
-        ({ data, error } = await supabase
-          .from('categories')
-          .update(payload)
-          .eq('id', editingCategory.id)
-          .select()
-          .single());
-        if (error) throw error;
-        setCategories(prev => prev.map(c => c.id === editingCategory.id ? data : c));
-        showNotify('Categoría actualizada');
-      } else {
-        ({ data, error } = await supabase
-          .from('categories')
-          .insert(payload)
-          .select()
-          .single());
-        if (error) throw error;
-        setCategories(prev => [...prev, data]);
-        showNotify('Nueva categoría añadida');
-      }
-      setIsCategoryModalOpen(false);
-    } catch (error) {
-      showNotify(error.message, 'error');
-    } finally {
-      setSaving(false);
-      loadData(); // Para refrescar el orden y la lista
-    }
-  };
   const handleSaveProduct = async (formData, localFile) => {
     setSaving(true);
     try {
       let finalImageUrl = formData.image_url;
-
       if (localFile) {
         const fileExt = localFile.name.split('.').pop();
         const fileName = `${Date.now()}.${fileExt}`;
         const { error: upErr } = await supabase.storage.from('images').upload(`menu/${fileName}`, localFile);
-        if (upErr) throw upErr;
-        const { data } = supabase.storage.from('images').getPublicUrl(`menu/${fileName}`);
-        finalImageUrl = data.publicUrl;
+        if (!upErr) {
+           const { data } = supabase.storage.from('images').getPublicUrl(`menu/${fileName}`);
+           finalImageUrl = data.publicUrl;
+        }
       }
-
       const payload = { ...formData, image_url: finalImageUrl, price: parseInt(formData.price) };
 
       if (editingProduct) {
         const { data, error } = await supabase.from('products').update(payload).eq('id', editingProduct.id).select().single();
-        if (error) throw error;
-        setProducts(prev => prev.map(p => p.id === editingProduct.id ? data : p));
-        showNotify("Producto actualizado");
+        if (!error) {
+            setProducts(prev => prev.map(p => p.id === editingProduct.id ? data : p));
+            showNotify("Producto actualizado");
+        }
       } else {
         const { data, error } = await supabase.from('products').insert(payload).select().single();
-        if (error) throw error;
-        setProducts(prev => [...prev, data]);
-        showNotify("Nuevo plato añadido");
+        if (!error) {
+            setProducts(prev => [...prev, data]);
+            showNotify("Nuevo plato añadido");
+        }
       }
       setIsModalOpen(false);
     } catch (error) {
@@ -152,20 +132,6 @@ const Admin = () => {
       setSaving(false);
     }
   };
-  // --- ACTIVIDAD RECIENTE ---
-  const [recentActivity, setRecentActivity] = useState([]);
-
-  useEffect(() => {
-    // Simulación de actividad reciente (puedes reemplazar por fetch real)
-    setRecentActivity(
-      products.slice(-5).map(p => ({
-        type: 'Producto',
-        name: p.name,
-        date: new Date().toLocaleString(),
-        action: 'Actualizado'
-      }))
-    );
-  }, [products]);
 
   const deleteProduct = async (id) => {
     if (!window.confirm('¿Eliminar permanentemente este producto?')) return;
@@ -175,20 +141,60 @@ const Admin = () => {
       setProducts(prev => prev.filter(p => p.id !== id));
       showNotify("Producto eliminado");
     } catch (error) {
-      showNotify("Error: El producto tiene dependencias activas", 'error');
+      showNotify("Error: El producto tiene dependencias", 'error');
     }
   };
 
-  // --- ANALÍTICA FUNCIONAL ---
+  // --- GESTIÓN DE CATEGORÍAS ---
+  const handleSaveCategory = async (formData) => {
+    setSaving(true);
+    try {
+      const payload = { name: formData.name, order: parseInt(formData.order), is_active: formData.is_active };
+      let data, error;
+      
+      if (editingCategory) {
+        ({ data, error } = await supabase.from('categories').update(payload).eq('id', editingCategory.id).select().single());
+        if (!error) {
+            setCategories(prev => prev.map(c => c.id === editingCategory.id ? data : c));
+            showNotify('Categoría actualizada');
+        }
+      } else {
+        const id = formData.name.toLowerCase().replace(/\s+/g, '-');
+        ({ data, error } = await supabase.from('categories').insert({...payload, id}).select().single());
+        if (!error) {
+            setCategories(prev => [...prev, data]);
+            showNotify('Nueva categoría añadida');
+        }
+      }
+      setIsCategoryModalOpen(false);
+      loadData(); 
+    } catch (error) {
+      showNotify(error.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // --- ANALÍTICA Y FILTROS ---
   const stats = useMemo(() => {
     const totalVal = products.reduce((acc, p) => acc + (p.price || 0), 0);
+    
+    // Ingresos: Sumamos 'completed' (listos) Y 'picked_up' (retirados)
+    const income = orders
+      .filter(o => o.status === 'completed' || o.status === 'picked_up')
+      .reduce((acc, o) => acc + o.total, 0);
+      
+    const pendingOrders = orders.filter(o => o.status === 'pending').length;
+
     return {
       total: products.length,
       active: products.filter(p => p.is_active).length,
-      premium: products.filter(p => p.is_special).length,
-      avg: products.length ? Math.round(totalVal / products.length) : 0
+      avg: products.length ? Math.round(totalVal / products.length) : 0,
+      income: income,
+      pending: pendingOrders,
+      totalOrders: orders.length
     };
-  }, [products]);
+  }, [products, orders]);
 
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -196,8 +202,9 @@ const Admin = () => {
     return matchesSearch && matchesCat;
   });
 
+  const filteredOrders = orders.filter(o => o.status === orderStatusFilter);
 
-  // Hook para responsividad en tiempo real (debe ir antes de cualquier return)
+  // Hook para responsividad
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 800);
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 800);
@@ -227,7 +234,7 @@ const Admin = () => {
         </div>
       )}
 
-      {/* SIDEBAR CON IDENTIDAD DE MARCA */}
+      {/* SIDEBAR */}
       <aside className="admin-sidebar glass" style={{
         minWidth: isMobile ? '100vw' : 220,
         maxWidth: isMobile ? '100vw' : 260,
@@ -259,9 +266,24 @@ const Admin = () => {
             )}
           </div>
           <nav className="sidebar-nav" style={{display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: isMobile ? 4 : 8, marginLeft: isMobile ? 8 : 0}}>
-            <button onClick={() => setActiveTab('products')} className={`nav-item ${activeTab === 'products' ? 'active' : ''}`} style={{padding: isMobile ? '8px 10px' : undefined, fontSize: isMobile ? 13 : undefined}}><ShoppingBag size={isMobile ? 18 : 20} />{!isMobile && <span>Inventario</span>}</button>
-            <button onClick={() => setActiveTab('categories')} className={`nav-item ${activeTab === 'categories' ? 'active' : ''}`} style={{padding: isMobile ? '8px 10px' : undefined, fontSize: isMobile ? 13 : undefined}}><List size={isMobile ? 18 : 20} />{!isMobile && <span>Categorías</span>}</button>
-            <button onClick={() => setActiveTab('analytics')} className={`nav-item ${activeTab === 'analytics' ? 'active' : ''}`} style={{padding: isMobile ? '8px 10px' : undefined, fontSize: isMobile ? 13 : undefined}}><BarChart3 size={isMobile ? 18 : 20} />{!isMobile && <span>Reportes</span>}</button>
+            <button onClick={() => setActiveTab('orders')} className={`nav-item ${activeTab === 'orders' ? 'active' : ''}`} style={{padding: isMobile ? '8px 10px' : undefined, fontSize: isMobile ? 13 : undefined}}>
+              <CheckSquare size={isMobile ? 18 : 20} />
+              {!isMobile && <span>Pedidos</span>}
+              {stats.pending > 0 && (
+                <span style={{background: '#e63946', color: 'white', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '10px', marginLeft: isMobile ? 4 : 'auto'}}>
+                  {stats.pending}
+                </span>
+              )}
+            </button>
+            <button onClick={() => setActiveTab('products')} className={`nav-item ${activeTab === 'products' ? 'active' : ''}`} style={{padding: isMobile ? '8px 10px' : undefined, fontSize: isMobile ? 13 : undefined}}>
+              <ShoppingBag size={isMobile ? 18 : 20} />{!isMobile && <span>Inventario</span>}
+            </button>
+            <button onClick={() => setActiveTab('categories')} className={`nav-item ${activeTab === 'categories' ? 'active' : ''}`} style={{padding: isMobile ? '8px 10px' : undefined, fontSize: isMobile ? 13 : undefined}}>
+              <List size={isMobile ? 18 : 20} />{!isMobile && <span>Categorías</span>}
+            </button>
+            <button onClick={() => setActiveTab('analytics')} className={`nav-item ${activeTab === 'analytics' ? 'active' : ''}`} style={{padding: isMobile ? '8px 10px' : undefined, fontSize: isMobile ? 13 : undefined}}>
+              <BarChart3 size={isMobile ? 18 : 20} />{!isMobile && <span>Reportes</span>}
+            </button>
           </nav>
         </div>
         <button onClick={() => navigate('/login')} className="nav-item logout-btn" style={{marginTop: isMobile ? 0 : 32, fontSize: isMobile ? 13 : undefined, padding: isMobile ? '8px 10px' : undefined}}><LogOut size={isMobile ? 18 : 20} />{!isMobile && <span>Desconectar</span>}</button>
@@ -284,12 +306,15 @@ const Admin = () => {
         }}>
           <div className="header-flex-col" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, width: '100%'}}>
             <h2 className="section-title text-gradient" style={{marginBottom: 0, textAlign: 'center', width: '100%'}}>
-              {activeTab === 'products' ? 'Gestión de Inventario' : 
-               activeTab === 'categories' ? 'Estructura de Carta' : 'Métricas de Negocio'}
+              {activeTab === 'orders' ? 'Gestión de Pedidos' : 
+               activeTab === 'products' ? 'Inventario' : 
+               activeTab === 'categories' ? 'Estructura' : 'Panel de Control'}
             </h2>
-            <p className="header-subtitle" style={{textAlign: 'center', width: '100%'}}>Control de activos en tiempo real</p>
+            <p className="header-subtitle" style={{textAlign: 'center', width: '100%'}}>
+              {activeTab === 'orders' ? 'Administra cocina y entregas' : 'Control de activos en tiempo real'}
+            </p>
             <div className="header-actions" style={{display: 'flex', gap: isMobile ? 8 : 16, alignItems: 'center', justifyContent: 'center', marginTop: 8, flexWrap: isMobile ? 'wrap' : undefined}}>
-              <button onClick={() => window.open('/', '_blank')} className="btn btn-secondary glass" style={{display: 'flex', alignItems: 'center', gap: 8}}><ExternalLink size={22} style={{marginRight: 4}} /><span>Previsualizar</span></button>
+              <button onClick={() => window.open('/', '_blank')} className="btn btn-secondary glass" style={{display: 'flex', alignItems: 'center', gap: 8}}><ExternalLink size={22} style={{marginRight: 4}} /><span>Ver Carta</span></button>
               {activeTab === 'products' && (
                 <button onClick={() => { setEditingProduct(null); setIsModalOpen(true); }} className="btn btn-primary btn-glow" style={{display: 'flex', alignItems: 'center', gap: 8}}><Plus size={22} style={{marginRight: 4}} /><span>Nuevo Plato</span></button>
               )}
@@ -300,19 +325,130 @@ const Admin = () => {
           </div>
         </header>
 
+        {/* --- VISTA DE PEDIDOS --- */}
+        {activeTab === 'orders' && (
+          <section className="admin-orders-section" style={{margin: isMobile ? '0 1vw' : '0 40px', display: 'flex', flexDirection: 'column', gap: isMobile ? 10 : 24}}>
+            {/* Tabs de Estado ACTUALIZADOS */}
+            <div className="orders-tabs glass" style={{display:'flex', gap:10, padding: isMobile ? 10 : 15, borderRadius:16, flexWrap:'wrap', background: 'rgba(30,41,59,0.85)'}}>
+              {[
+                { id: 'pending', label: 'Entrantes', icon: <Clock size={18}/>, color: '#f4a261' },
+                { id: 'active', label: 'En Cocina', icon: <ChefHat size={18}/>, color: '#e63946' },
+                { id: 'completed', label: 'Listos', icon: <BellRing size={18}/>, color: '#25d366' },
+                { id: 'picked_up', label: 'Retirados', icon: <UserCheck size={18}/>, color: '#3b82f6' }, // NUEVO ESTADO
+                { id: 'canceled', label: 'Cancelados', icon: <XCircle size={18}/>, color: '#ff4444' }
+              ].map(tab => (
+                <button 
+                  key={tab.id}
+                  onClick={() => setOrderStatusFilter(tab.id)}
+                  className="btn"
+                  style={{
+                    backgroundColor: orderStatusFilter === tab.id ? tab.color : 'transparent',
+                    color: orderStatusFilter === tab.id ? (tab.id === 'pending' || tab.id === 'completed' ? '#000' : '#fff') : 'var(--text-secondary)',
+                    border: '1px solid var(--card-border)',
+                    flex: isMobile ? '1 1 40%' : 1,
+                    fontSize: isMobile ? '0.85rem' : '1rem',
+                    justifyContent: 'center'
+                  }}
+                >
+                  {tab.icon} {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="admin-content-card glass" style={{padding: 0, background: 'rgba(30,41,59,0.92)', color: '#fff', borderRadius: isMobile ? 10 : 18, width: '100%', overflowX: 'auto'}}>
+              <div className="table-wrapper" style={{overflowX: 'auto', width: '100%'}}>
+                <table className="data-table" style={{minWidth: isMobile ? 600 : 900, background: 'transparent', color: '#fff', fontSize: isMobile ? 12 : undefined, width: '100%'}}>
+                  <thead>
+                    <tr>
+                      <th>Cliente</th>
+                      <th>Detalle del Pedido</th>
+                      <th>Pago</th>
+                      <th>Total</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredOrders.length === 0 ? (
+                      <tr><td colSpan="5" style={{textAlign:'center', padding:40, opacity:0.5}}>No hay pedidos en esta sección</td></tr>
+                    ) : filteredOrders.map(order => (
+                      <tr key={order.id} className="row-hover">
+                        <td style={{verticalAlign: 'top'}}>
+                          <div style={{fontWeight: 'bold', fontSize: '1rem'}}>{order.client_name}</div>
+                          <div style={{fontSize: '0.8rem', display:'flex', alignItems:'center', gap:5, opacity:0.7, marginTop: 4}}>
+                            <Phone size={12}/> {order.client_phone}
+                          </div>
+                        </td>
+                        <td style={{maxWidth: '300px'}}>
+                          <ul style={{listStyle:'none', padding:0, fontSize:'0.85rem', margin: 0}}>
+                            {order.items.map((item, idx) => (
+                              <li key={idx} style={{marginBottom: 2}}>• {item.quantity}x {item.name}</li>
+                            ))}
+                          </ul>
+                          {order.note && (
+                            <div style={{fontSize:'0.75rem', color:'var(--accent-secondary)', marginTop:6, fontStyle:'italic'}}>
+                              📝 Nota: "{order.note}"
+                            </div>
+                          )}
+                        </td>
+                        <td style={{verticalAlign: 'top'}}>
+                          <span className="status-pill" style={{background: 'rgba(255,255,255,0.1)', fontSize: '0.7rem'}}>
+                            {order.payment_type === 'online' ? 'Transferencia' : 'Local'}
+                          </span>
+                          {order.payment_ref && <div style={{fontSize:'0.7rem', marginTop:6, opacity: 0.8}}>Ref: {order.payment_ref}</div>}
+                        </td>
+                        <td style={{fontWeight:'800', color:'var(--accent-primary)', fontSize: '1rem'}}>${order.total.toLocaleString('es-CL')}</td>
+                        <td>
+                          <div className="actions-group" style={{display: 'flex', gap: 8}}>
+                            
+                            {/* Flujo: Pendiente -> Cocina */}
+                            {order.status === 'pending' && (
+                              <button onClick={() => updateOrderStatus(order.id, 'active')} className="action-btn" title="Pasar a Cocina" style={{background: '#e63946', color:'white'}}>
+                                <ChefHat size={18} />
+                              </button>
+                            )}
+
+                            {/* Flujo: Cocina -> Listo */}
+                            {order.status === 'active' && (
+                              <button onClick={() => updateOrderStatus(order.id, 'completed')} className="action-btn" title="Listo para Retiro" style={{background: '#25d366', color:'black'}}>
+                                <BellRing size={18} />
+                              </button>
+                            )}
+
+                            {/* Flujo: Listo -> Retirado (NUEVO) */}
+                            {order.status === 'completed' && (
+                              <button onClick={() => updateOrderStatus(order.id, 'picked_up')} className="action-btn" title="Entregado al Cliente" style={{background: '#3b82f6', color:'white'}}>
+                                <UserCheck size={18} />
+                              </button>
+                            )}
+
+                            {/* Cancelar (Disponible hasta que se retira) */}
+                            {(order.status !== 'canceled' && order.status !== 'picked_up') && (
+                              <button onClick={() => updateOrderStatus(order.id, 'canceled')} className="action-btn" title="Cancelar" style={{background: 'transparent', border: '1px solid #ff4444', color:'#ff4444'}}>
+                                <XCircle size={18} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* VISTA DE PRODUCTOS */}
         {activeTab === 'products' && (
           <section className="admin-products-section" style={{margin: isMobile ? '0 1vw' : '0 40px', display: 'flex', flexDirection: 'column', gap: isMobile ? 10 : 24}}>
             <div className="admin-toolbar glass" style={{display: 'flex', gap: isMobile ? 8 : 24, alignItems: 'center', marginBottom: isMobile ? 8 : 16, padding: isMobile ? 8 : 16, background: 'rgba(30,41,59,0.85)', color: '#fff', borderRadius: isMobile ? 10 : 16, flexDirection: isMobile ? 'column' : 'row'}}>
-              {/* Buscador oculto temporalmente */}
-              <div className="search-box" style={{display: 'none'}}></div>
               <div className="search-box" style={{flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-secondary)', border: '1px solid var(--card-border)'}}>
                 <Search size={18} />
-                <input type="text" placeholder="Buscar plato por nombre..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 16, color: '#fff'}} />
+                <input type="text" placeholder="Buscar plato..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 16, color: '#fff'}} />
               </div>
               <div className="filter-box" style={{display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-secondary)', border: '1px solid var(--card-border)'}}>
                 <Filter size={18} />
-                <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="input-select" style={{background: 'var(--bg-secondary)', color: '#fff', border: 'none', appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none'}}>
+                <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="input-select" style={{background: 'var(--bg-secondary)', color: '#fff', border: 'none', appearance: 'none'}}>
                   <option value="all">Todo el Menú</option>
                   {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
@@ -335,19 +471,12 @@ const Admin = () => {
                   <tbody>
                     {filteredProducts.map(p => (
                       <tr key={p.id} className="row-hover">
-                        <td>
-                          <div className="thumb-frame">
-                            <img src={p.image_url || 'https://via.placeholder.com/50'} className="table-thumb" alt="" />
-                          </div>
-                        </td>
-                        <td>
-                          <span className="p-name">{p.name}</span>
-                          {p.is_special && <span className="premium-label">ESPECIAL 🔥</span>}
-                        </td>
+                        <td><div className="thumb-frame"><img src={p.image_url || ''} className="table-thumb" alt="" /></div></td>
+                        <td><span className="p-name">{p.name}</span>{p.is_special && <span className="premium-label">ESPECIAL 🔥</span>}</td>
                         <td className="p-cat">{categories.find(c => c.id === p.category_id)?.name || '---'}</td>
                         <td className="p-price">${p.price?.toLocaleString('es-CL')}</td>
                         <td>
-                          <button className={`status-pill ${p.is_active ? 'active' : 'inactive'} status-toggle-btn`} title={p.is_active ? 'Pausar producto' : 'Hacer visible'} style={{ cursor: 'pointer', border: 'none', background: 'none', padding: 0 }} onClick={() => toggleProductActive(p)}>
+                          <button className={`status-pill ${p.is_active ? 'active' : 'inactive'} status-toggle-btn`} onClick={() => toggleProductActive(p)} style={{ cursor: 'pointer', border: 'none', background: 'none', padding: 0 }}>
                             {p.is_active ? (<><Eye size={16} style={{ verticalAlign: 'middle' }} /> Visible</>) : (<><EyeOff size={16} style={{ verticalAlign: 'middle' }} /> Pausado</>)}
                           </button>
                         </td>
@@ -366,36 +495,36 @@ const Admin = () => {
           </section>
         )}
 
-        {/* VISTA DE REPORTES FUNCIONAL */}
+        {/* VISTA DE REPORTES */}
         {activeTab === 'analytics' && (
-          <div className="reports-grid animate-fade" style={{gridTemplateColumns: isMobile ? '1fr' : undefined, gap: isMobile ? 10 : 24}}>
+          <div className="reports-grid animate-fade" style={{gridTemplateColumns: isMobile ? '1fr' : undefined, gap: isMobile ? 10 : 24, margin: isMobile ? '0 1vw' : '0 40px'}}>
             <div className="stat-card glass" style={{background: 'rgba(30,41,59,0.92)', color: '#fff', borderRadius: 18}}>
               <Package size={32} className="card-icon" />
               <div className="card-data">
-                <h4>Total Items</h4>
-                <p className="card-value">{stats.total}</p>
-              </div>
-            </div>
-            <div className="stat-card glass">
-              <TrendingUp size={32} className="card-icon" />
-              <div className="card-data">
-                <h4>Items Visibles</h4>
-                <p className="card-value">{stats.active}</p>
+                <h4>Total Histórico</h4>
+                <p className="card-value">{stats.totalOrders}</p>
               </div>
             </div>
             <div className="stat-card glass">
               <DollarSign size={32} className="card-icon" />
               <div className="card-data">
-                <h4>Ticket Promedio</h4>
-                <p className="card-value">${stats.avg.toLocaleString('es-CL')}</p>
+                <h4>Ingresos Reales</h4>
+                <p className="card-value">${stats.income.toLocaleString('es-CL')}</p>
+              </div>
+            </div>
+            <div className="stat-card glass">
+              <TrendingUp size={32} className="card-icon" />
+              <div className="card-data">
+                <h4>Items Activos</h4>
+                <p className="card-value">{stats.active}</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* VISTA DE CATEGORÍAS FUNCIONAL */}
+        {/* VISTA DE CATEGORÍAS */}
         {activeTab === 'categories' && (
-          <div className="admin-content-card glass animate-fade" style={{background: 'rgba(30,41,59,0.92)', color: '#fff', borderRadius: isMobile ? 10 : 18, width: '100%', overflowX: 'auto'}}>
+          <div className="admin-content-card glass animate-fade" style={{background: 'rgba(30,41,59,0.92)', color: '#fff', borderRadius: isMobile ? 10 : 18, width: '100%', overflowX: 'auto', margin: isMobile ? '0 1vw' : '0 40px'}}>
             <div className="table-wrapper" style={{overflowX: 'auto', width: '100%'}}>
               <table className="data-table" style={{background: 'transparent', color: '#fff', minWidth: isMobile ? 320 : undefined, fontSize: isMobile ? 12 : undefined, width: '100%'}}>
                 <thead>
