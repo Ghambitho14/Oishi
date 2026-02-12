@@ -299,7 +299,7 @@ body {
 }
 
 /* =========================================
-   6. PRODUCTOS (CARDS PREMIUM & RESPONSIVE)
+   6. PRODUCTOS (SCROLL INTERNO & FIXED GRID)
    ========================================= */
 
 .product-grid {
@@ -307,9 +307,11 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 24px;
   margin-top: 20px;
+  align-items: start; 
 }
 
 .product-card {
+  height: 440px; 
   background: linear-gradient(145deg, rgba(35, 35, 35, 0.7) 0%, rgba(20, 20, 20, 0.4) 100%);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -318,9 +320,8 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  height: 100%;
   position: relative;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s ease;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
@@ -330,11 +331,17 @@ body {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
+.product-card.is-viewing-info {
+  border-color: var(--accent-secondary);
+  box-shadow: inset 0 0 20px rgba(244, 162, 97, 0.1);
+}
+
 .product-image {
   position: relative;
   width: 100%;
   aspect-ratio: 4/3;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .product-image img {
@@ -352,7 +359,7 @@ body {
   position: absolute;
   top: 12px;
   left: 12px;
-  background: rgba(0, 0, 0, 0.7); /* Fondo oscuro para que resalte */
+  background: rgba(20, 20, 20, 0.8);
   backdrop-filter: blur(8px);
   color: white;
   padding: 6px 12px;
@@ -360,191 +367,208 @@ body {
   font-size: 0.75rem;
   font-weight: 800;
   z-index: 10;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 165, 0, 0.3);
   display: flex;
   align-items: center;
+  gap: 6px;
+  box-shadow: 0 0 15px rgba(255, 123, 0, 0.2); 
 }
 
 .product-info {
-  padding: 20px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
   flex-grow: 1;
+  overflow: hidden;
+}
+
+.info-content-wrapper {
+  flex-grow: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 120px;
+  overflow: hidden;
+  margin-bottom: 8px;
 }
 
 .product-name {
-  font-size: 1.2rem;
+  font-size: 1.15rem;
   font-weight: 700;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   color: var(--text-primary);
   line-height: 1.2;
   letter-spacing: -0.3px;
 }
 
-/* --- LÓGICA DE DESCRIPCIÓN (SIN CORTES FORZADOS) --- */
-.product-desc {
-  font-size: 0.9rem;
+.product-desc-clamped {
+  font-size: 0.85rem;
   color: var(--text-secondary);
-  line-height: 1.5;
-  margin-bottom: 8px;
-  
-  /* Recorte inicial de 2 líneas */
+  line-height: 1.4;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  transition: all 0.3s ease;
-  cursor: pointer;
 }
 
-/* Estado expandido para descripciones largas */
-.product-desc.expanded {
-  -webkit-line-clamp: unset; 
-  overflow: visible;
-  color: #e0e0e0;
-  background: rgba(255,255,255,0.03);
-  padding: 10px;
-  border-radius: 8px;
-  margin-bottom: 12px;
+.product-desc-scrollable {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  animation: fadeInText 0.3s ease-out forwards;
 }
 
-/* Botón para alternar ingredientes */
-.btn-info-toggle {
-  background: none;
-  border: none;
+.desc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  font-weight: 800;
   color: var(--accent-secondary);
-  font-size: 0.8rem;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.5px;
+}
+
+.scroll-area {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding-right: 8px;
+  font-size: 0.85rem;
+  color: #e0e0e0;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.scroll-area::-webkit-scrollbar {
+  width: 3px;
+}
+.scroll-area::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+}
+
+.info-hint {
+  font-size: 0.65rem;
+  color: var(--accent-secondary);
+  margin-bottom: 12px;
   font-weight: 700;
-  cursor: pointer;
-  padding: 0;
-  margin-bottom: 15px;
+  text-transform: uppercase;
   display: flex;
   align-items: center;
   gap: 4px;
-  align-self: flex-start;
 }
 
 .product-footer {
-  margin-top: auto;
+  margin-top: auto; 
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 15px;
+  padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .product-price {
   font-weight: 800;
-  font-size: 1.3rem;
+  font-size: 1.25rem;
   color: white;
-  text-shadow: 0 0 20px rgba(244, 162, 97, 0.3);
+  text-shadow: 0 0 20px rgba(244, 162, 97, 0.2);
 }
 
 .btn-add {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: white; /* Contraste máximo */
+  background: white;
   color: black;
   border: none;
-  padding: 10px 18px;
+  padding: 10px 16px;
   border-radius: 50px;
   cursor: pointer;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   transition: all 0.2s ease;
-}
-
-.btn-add:hover {
-  background: var(--accent-primary);
-  color: white;
-  transform: translateY(-2px);
 }
 
 .btn-add.added {
   background: #25d366;
-  color: black;
+  color: white;
 }
 
-/* --- REGLAS MÓVILES (CELULAR CORREGIDO) --- */
+@keyframes fadeInText {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- AJUSTES MÓVIL (CORRECCIÓN DE PROPORCIÓN) --- */
 @media (max-width: 600px) {
   .product-grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    gap: 10px;
   }
 
   .product-card {
-    border-radius: 20px; /* Bordes un poco más suaves */
+    height: 280px; /* Altura corregida para no verse estirada */
+    border-radius: 16px;
   }
   
+  .product-image {
+    aspect-ratio: 16/10; /* Imagen más compacta en móvil */
+  }
+
   .product-info {
-    padding: 12px; /* Espaciado interno más ajustado */
+    padding: 10px;
+  }
+
+  .info-content-wrapper {
+    min-height: 65px;
   }
   
   .product-name {
-    font-size: 0.9rem;
-    height: auto; 
-    margin-bottom: 4px;
-    line-height: 1.1;
-  }
-
-  .product-desc {
+    font-size: 0.85rem;
+    margin-bottom: 2px;
     display: -webkit-box;
-    -webkit-line-clamp: 1;
-    font-size: 0.75rem;
-    margin-bottom: 4px;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
-  .product-desc.expanded {
-    -webkit-line-clamp: unset;
-    font-size: 0.8rem;
-    padding: 8px;
-  }
-
-  .btn-info-toggle {
-    margin-bottom: 8px;
+  .product-desc-clamped {
     font-size: 0.7rem;
-  }
-
-  /* --- FOOTER MOBILE: El cambio clave --- */
-  .product-footer {
-    padding-top: 8px;
-    flex-direction: row; /* Asegura que precio y botón estén en la misma línea */
-    align-items: center;
-    justify-content: space-between;
+    -webkit-line-clamp: 1; 
   }
 
   .product-price {
-    font-size: 0.95rem; /* Precio legible pero no gigante */
-    text-shadow: none;
+    font-size: 0.9rem;
   }
 
   .btn-add {
-    width: 36px; /* Lo convertimos en un botón circular/cuadrado elegante */
-    height: 36px;
+    width: 32px;
+    height: 32px;
     padding: 0;
-    border-radius: 12px; /* Estilo moderno */
+    border-radius: 10px;
     justify-content: center;
-    background: var(--accent-primary); /* Rojo para que resalte como acción */
-    color: white;
   }
   
   .btn-add span {
-    display: none; /* Escondemos el texto "Agregar" para que no sea inmenso */
+    display: none;
   }
 
-  .btn-add svg {
-    width: 20px;
-    height: 20px;
+  .info-hint {
+    font-size: 0.6rem;
+    margin-bottom: 4px;
   }
 
-  .btn-add.added {
-    background: #25d366;
-    color: white;
-  }
-
-  .container {
-    padding: 0 12px;
+  .badge-special {
+    top: 8px;
+    left: 8px;
+    padding: 4px 8px;
+    font-size: 0.6rem;
   }
 }
 /* =========================================
@@ -941,3 +965,64 @@ input:checked + .slider:before { transform: translateX(22px); }
 
 @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
 .animate-slide-in { animation: slideIn 0.3s ease-out; }
+
+/* =========================================
+   7. SECCIONES Y CATEGORÍAS (SUBTÍTULOS)
+   ========================================= */
+
+.category-section {
+  margin-top: 40px;
+  margin-bottom: 25px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05); /* Línea base muy sutil */
+  position: relative;
+}
+
+.category-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.5rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+}
+
+/* El acento de color debajo del título */
+.category-title::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 60px;
+  height: 3px;
+  background: var(--accent-secondary); /* Tu color naranja/salmón */
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(244, 162, 97, 0.4);
+}
+
+/* Estilo para los emojis animados en los títulos */
+.category-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+/* Ajuste para móvil */
+@media (max-width: 600px) {
+  .category-title {
+    font-size: 1.1rem;
+    gap: 8px;
+  }
+  
+  .category-icon {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+section {
+  scroll-behavior: smooth;
+  overflow-anchor: none; 
+}

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Check, ChevronDown, X } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
 const ProductCard = ({ product }) => {
@@ -9,40 +9,37 @@ const ProductCard = ({ product }) => {
 
   const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&q=80&w=400';
 
-  const handleAdd = () => {
+  // Solo habilitar expansión si el texto es largo (ej. más de 60 caracteres)
+  const isLongDesc = product.description?.length > 60;
+
+  useEffect(() => {
+    let timer;
+    if (isExpanded) {
+      timer = setTimeout(() => setIsExpanded(false), 10000); // 10 segundos de lectura
+    }
+    return () => clearTimeout(timer);
+  }, [isExpanded]);
+
+  const handleAdd = (e) => {
+    e.stopPropagation();
     addToCart(product);
     setIsAdded(true);
     setTimeout(() => setIsAdded(false), 1000);
   };
 
   return (
-    <div className="product-card glass animate-fade">
+    <div 
+      className={`product-card glass ${isExpanded ? 'is-viewing-info' : ''}`}
+      onClick={() => isLongDesc && setIsExpanded(!isExpanded)}
+    >
       <div className="product-image">
-        <img 
-          src={product.image_url || FALLBACK_IMAGE} 
-          alt={product.name} 
-          onError={(e) => {
-            e.target.onerror = null; 
-            e.target.src = FALLBACK_IMAGE;
-          }}
-        />
-        
-        {/* BADGE PREMIUM CON MOVIMIENTO REAL (GIF) */}
+        <img src={product.image_url || FALLBACK_IMAGE} alt={product.name} />
         {product.is_special && (
-          <span className="badge-special" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span className="badge-special">
             <img 
-              src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Activities/Fire.gif" 
+              src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.gif" 
               alt="🔥" 
-              style={{ 
-                width: '18px', 
-                height: '18px',
-                objectFit: 'contain'
-              }} 
-              onError={(e) => {
-                // Si el GIF falla, borramos la imagen y dejamos el emoji de texto como respaldo
-                e.target.style.display = 'none';
-                e.target.parentElement.innerHTML = '🔥 Hoy';
-              }}
+              style={{ width: '18px', height: '18px' }} 
             />
             Hoy
           </span>
@@ -50,28 +47,30 @@ const ProductCard = ({ product }) => {
       </div>
       
       <div className="product-info">
-        <h3 className="product-name">{product.name}</h3>
+        <div className="info-content-wrapper">
+          {!isExpanded ? (
+            <>
+              <h3 className="product-name">{product.name}</h3>
+              {/* Muestra todo lo que quepa en 3 líneas antes de pedir "ver más" */}
+              <p className="product-desc-clamped">{product.description}</p>
+            </>
+          ) : (
+            <div className="product-desc-scrollable animate-in-fade">
+              <div className="desc-header">
+                <span>Detalles</span>
+                <X size={14} />
+              </div>
+              <div className="scroll-area">
+                <p>{product.description}</p>
+              </div>
+            </div>
+          )}
+        </div>
         
-        {/* Descripción con sistema de expansión dinámica */}
-        <p 
-          className={`product-desc ${isExpanded ? 'expanded' : ''}`}
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          {product.description}
-        </p>
-        
-        {/* Botón para ver más ingredientes si el texto es largo */}
-        {product.description && product.description.length > 40 && (
-          <button 
-            className="btn-info-toggle" 
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            {isExpanded ? (
-              <>Ver menos <ChevronUp size={14} /></>
-            ) : (
-              <>Ver ingredientes <ChevronDown size={14} /></>
-            )}
-          </button>
+        {isLongDesc && !isExpanded && (
+          <div className="info-hint">
+            <ChevronDown size={14} /> Ver más detalles
+          </div>
         )}
         
         <div className="product-footer">
