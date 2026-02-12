@@ -63,23 +63,16 @@ export const CartProvider = ({ children }) => {
   const generateWhatsAppMessage = () => {
     if (cart.length === 0) return;
 
-    // Emojis iOS/Unicode estándar para WhatsApp
-    const sushi = '\uD83C\uDF63'; // 🍣
-    const box = '\uD83D\uDCE6'; // 📦
-    const tag = '\uD83C\uDFF7️'; // 🏷️
-    const money = '\uD83D\uDCB0'; // 💰
-    const note = '\uD83D\uDCDD'; // 📝
-    const pin = '\uD83D\uDCCD'; // 📍
-
-    let message = `${sushi} *NUEVO PEDIDO WEB OISHI* ${sushi}\n`;
+    // Usa emojis directamente en el string para máxima compatibilidad
+    let message = `🍣 *NUEVO PEDIDO WEB OISHI* 🍣\n`;
     message += `───────────────\n`;
 
     cart.forEach(item => {
       const price = getPrice(item);
       const subtotal = price * item.quantity;
-      message += `${box} *${item.quantity}x ${item.name}*\n`;
+      message += `📦 *${item.quantity}x ${item.name}*\n`;
       if (item.discount_price && item.discount_price < item.price) {
-        message += `   ${tag} _(Oferta: $${price.toLocaleString('es-CL')})_\n`;
+        message += `   🏷️ _(Oferta: $${price.toLocaleString('es-CL')})_\n`;
       }
       message += `   💲 Subtotal: $${subtotal.toLocaleString('es-CL')}\n\n`;
     });
@@ -87,13 +80,13 @@ export const CartProvider = ({ children }) => {
     message += `───────────────\n`;
 
     if (orderNote.trim()) {
-      message += `${note} *Nota:* ${orderNote}\n`;
+      message += `📝 *Nota:* ${orderNote}\n`;
       message += `───────────────\n`;
     }
 
-    message += `${money} *TOTAL: $${cartTotal.toLocaleString('es-CL')}*\n`;
+    message += `💰 *TOTAL: $${cartTotal.toLocaleString('es-CL')}*\n`;
     message += `───────────────\n\n`;
-    message += `${pin} *Mis datos de envío:*\n(Escribe aquí tu dirección)`;
+    message += `📍 *Mis datos de envío:*\n(Escribe aquí tu dirección)`;
 
     return encodeURIComponent(message);
   };
