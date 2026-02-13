@@ -5,7 +5,7 @@ import Menu from './pages/Menu';
 import Admin from './pages/Admin';
 import Login from './pages/Login';
 import ProtectedRoute from './components/ProtectedRoute';
-import FloatingWhatsApp from './components/FloatingWhatsApp';
+import FloatingWhatsApp from './components/CartFloat';
 
 function App() {
   return (
